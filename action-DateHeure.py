@@ -1,74 +1,57 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 
-from snipsTools import SnipsConfigParser
+import ConfigParser
 from hermes_python.hermes import Hermes
 from hermes_python.ontology import *
 import io
 from datetime import datetime
 
+CONFIGURATION_ENCODING_FORMAT = "utf-8"
 CONFIG_INI = "config.ini"
 
-# If this skill is supposed to run on the satellite,
-# please get this mqtt connection info from <config.ini>
-# Hint: MQTT server is always running on the master device
-MQTT_IP_ADDR = "localhost"
-MQTT_PORT = 1883
-MQTT_ADDR = "{}:{}".format(MQTT_IP_ADDR, str(MQTT_PORT))
+class SnipsConfigParser(ConfigParser.SafeConfigParser):
+    def to_dict(self):
+        return {section : {option_name : option for option_name, option in self.items(section)} for section in self.sections()}
 
-class DateHeure(object):
-    """Class used to wrap action code with mqtt connection
+
+def read_configuration_file(configuration_file):
+    try:
+        with io.open(configuration_file, encoding=CONFIGURATION_ENCODING_FORMAT) as f:
+            conf_parser = SnipsConfigParser()
+            conf_parser.readfp(f)
+            return conf_parser.to_dict()
+    except (IOError, ConfigParser.Error) as e:
+        return dict()
+
+def subscribe_intent_callback(hermes, intentMessage):
+    conf = read_configuration_file(CONFIG_INI)
+    action_wrapper(hermes, intentMessage, conf)
+
+
+def action_wrapper(hermes, intentMessage, conf):
+    quelleAction = intentMessage.intent.intentName
+    maintenant = datetime.now()
+    
+    if quelleAction == "heure":
+        sentence = "Il est "
+        sentence += str(maintenant.hour)
+        sentence += " heure "
+        sentence += str(maintenant.minute)
         
-        Please change the name refering to your application
-    """
-
-    def __init__(self):
-        # get the configuration if needed
-        try:
-            self.config = SnipsConfigParser.read_configuration_file(CONFIG_INI)
-        except :
-            self.config = None
-
-        # start listening to MQTT
-        self.start_blocking()
+    if quelleAction == "date":
+        sentence = "Nous sommes le "
+        sentence += str(maintenant.day)
+        sentence += " "
+        sentence += str(maintenant.month)
+        sentence += " "
+        sentence += str(maintenant.year)
         
-    # --> Sub callback function, one per intent
-    def intent_1_callback(self, hermes, intent_message):
-        # terminate the session first if not continue
-        hermes.publish_end_session(intent_message.session_id, "")
-        
-        # action code goes here...
-        print '[Received] intent: {}'.format(intent_message.intent.intent_name)
+    current_session_id = intentMessage.session_id
+    hermes.publish_end_session(current_session_id, sentence)
 
-        # if need to speak the execution result by tts
-        hermes.publish_start_session_notification(intent_message.site_id, "Action1 has been done", "")
 
-    def intent_2_callback(self, hermes, intent_message):
-        # terminate the session first if not continue
-        hermes.publish_end_session(intent_message.session_id, "")
-
-        # action code goes here...
-        print '[Received] intent: {}'.format(intent_message.intent.intent_name)
-
-        # if need to speak the execution result by tts
-        hermes.publish_start_session_notification(intent_message.site_id, "Action2 has been done", "")
-
-    # More callback function goes here...
-
-    # --> Master callback function, triggered everytime an intent is recognized
-    def master_intent_callback(self,hermes, intent_message):
-        coming_intent = intent_message.intent.intent_name
-        if coming_intent == 'demande_date_heure':
-            self.intent_1_callback(hermes, intent_message)
-        if coming_intent == 'totoff974:demande_date_heure':
-            self.intent_2_callback(hermes, intent_message)
-
-        # more callback and if condition goes here...
-
-    # --> Register callback function and start MQTT
-    def start_blocking(self):
-        with Hermes(MQTT_ADDR) as h:
-            h.subscribe_intent("totoff974:demande_date_heure", self.master_intent_callback).start()
 
 if __name__ == "__main__":
-    DateHeure()
+    with Hermes("localhost:1883") as h:
+        h.subscribe_intent("totoff974:askHeure", subscribe_intent_callback).start()
