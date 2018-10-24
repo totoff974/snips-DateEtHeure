@@ -5,6 +5,7 @@ from snipsTools import SnipsConfigParser
 from hermes_python.hermes import Hermes
 from hermes_python.ontology import *
 import io
+from datetime import datetime
 
 CONFIG_INI = "config.ini"
 
@@ -15,7 +16,7 @@ MQTT_IP_ADDR = "localhost"
 MQTT_PORT = 1883
 MQTT_ADDR = "{}:{}".format(MQTT_IP_ADDR, str(MQTT_PORT))
 
-class Template(object):
+class DateHeure(object):
     """Class used to wrap action code with mqtt connection
         
         Please change the name refering to your application
@@ -57,9 +58,9 @@ class Template(object):
     # --> Master callback function, triggered everytime an intent is recognized
     def master_intent_callback(self,hermes, intent_message):
         coming_intent = intent_message.intent.intent_name
-        if coming_intent == 'intent_1':
+        if coming_intent == 'demande_date_heure':
             self.intent_1_callback(hermes, intent_message)
-        if coming_intent == 'intent_2':
+        if coming_intent == 'totoff974:demande_date_heure':
             self.intent_2_callback(hermes, intent_message)
 
         # more callback and if condition goes here...
@@ -70,4 +71,4 @@ class Template(object):
             h.subscribe_intents(self.master_intent_callback).start()
 
 if __name__ == "__main__":
-    Template()
+    DateHeure()
